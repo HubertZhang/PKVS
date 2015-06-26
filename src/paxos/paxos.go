@@ -39,10 +39,10 @@ type Paxos struct {
 	me         int // index into peers[]
 
 	// Your data here.
-	next int
-	tail *LogEntry
-	done int
-	min  int
+	next  int
+	tail  *LogEntry
+	done  int
+	dones []int
 }
 
 type LogEntry struct {
@@ -59,9 +59,11 @@ type LogEntry struct {
 }
 
 type NumVal struct {
-	seq int
-	n   int
-	val interface{}
+	seq  int
+	n    int
+	val  interface{}
+	me   int
+	done int
 }
 
 func makeLogEntry(seq int) *LogEntry {
@@ -159,16 +161,27 @@ func (px *Paxos) extLog(seq int) *LogEntry {
 
 func (px *Paxos) Start(seq int, v interface{}) {
 	// Your code here.
+	if seq < Min() {
+		return
+	}
 
 	// insert new instance into log-list
 	log := extLog(seq)
 
 	// if already decided
-	if log == nil || log.decided {
+	if log.decided {
 		return
 	}
 
 	go Propose(seq, v, log)
+}
+
+func (px *Paxos) updateDones(peerNum int, doneVal int) {
+	if doneVal > dones[peerNum] {
+		mu.Lock()
+		dones[peerNum] = doneVal
+		mu.Unlock()
+	}
 }
 
 func (px *Paxos) Prepare(msg NumVal) NumVal {
@@ -177,12 +190,13 @@ func (px *Paxos) Prepare(msg NumVal) NumVal {
 		log.mu.Lock()
 		log.n_p = n
 		log.mu.Unlock()
-		return NumVal{seq, log.n_a, log.val}
+		updateDones(msg.me, msg.done)
+		return NumVal{seq, log.n_a, log.val, me, done}
 	}
-	return nil
+	return NumVal{-1, -1, nil, me, done}
 }
 
-func (px *Paxos) Accept(msg NumVal) bool {
+func (px *Paxos) Accept(msg NumVal) (bool, int, int) {
 	log := extLog(msg.seq)
 	if msg.n >= log.n_p {
 		log.mu.Lock()
@@ -190,9 +204,10 @@ func (px *Paxos) Accept(msg NumVal) bool {
 		log.n_a = msg.n
 		log.v_a = msg.val
 		log.mu.UnlocK()
-		return true
+		updateDones(msg.me, msg.done)
+		return true, me, done
 	}
-	return false
+	return false, me, done
 }
 
 func (px *Paxos) Decide(msg NumVal) {
@@ -203,6 +218,7 @@ func (px *Paxos) Decide(msg NumVal) {
 	log.v_a = msg.val
 	log.decided = true
 	log.mu.Unlock()
+	updateDones(msg.me, msg.done)
 }
 
 func (px *Paxos) Propose(seq int, v interface{}, entry *LogEntry) {
@@ -215,7 +231,7 @@ func (px *Paxos) Propose(seq int, v interface{}, entry *LogEntry) {
 		// prepare
 		count := 0
 		n := -1
-		prepareMsg := NumVal{seq, ballot, v}
+		prepareMsg := NumVal{seq, ballot, v, me, done}
 		for i := 0; i < 3; i++ {
 			client, err := rpc.Dial("tcp", px.peers[i])
 			if err != nil {
@@ -228,7 +244,8 @@ func (px *Paxos) Propose(seq int, v interface{}, entry *LogEntry) {
 				fmt.Println("Paxos.Propose prepare" + px.peers[i] + "connection failure")
 				continue
 			}
-			if reply == nil {
+			updateDones(reply.me, reply.done)
+			if reply.seq == -1 {
 				// rejected
 				continue
 			}
@@ -248,7 +265,7 @@ func (px *Paxos) Propose(seq int, v interface{}, entry *LogEntry) {
 			continue
 		}
 
-		accept := NumVal{seq, ballot, val}
+		accept := NumVal{seq, ballot, val, me, done}
 		count = 0
 		for i := 0; i < 3; i++ {
 			client, err := rpc.Dial("tcp", px.peers[i])
@@ -256,13 +273,18 @@ func (px *Paxos) Propose(seq int, v interface{}, entry *LogEntry) {
 				fmt.Println("Paxos.Accept dialing" + px.peers[i] + "error !")
 				continue
 			}
-			var reply bool
+			var reply struct {
+				accepted int
+				me       int
+				done     int
+			}
 			err = client.Call("Paxos.Accept", &accept, &reply)
 			if err != nil {
 				fmt.Println("Paxos.Propose accept" + px.peers[i] + "connection failure")
 				continue
 			}
-			if reply {
+			updateDones(reply.me, reply.done)
+			if reply.accepted {
 				count++
 			}
 		}
@@ -304,7 +326,9 @@ func (px *Paxos) Done(seq int) {
 		}
 	}
 	if flag {
+		mu.Lock()
 		done = seq
+		mu.Unlock()
 	}
 }
 
@@ -348,7 +372,34 @@ func (px *Paxos) Max() int {
 //
 func (px *Paxos) Min() int {
 	// You code here.
-	return 0
+
+	// find min-val among dones []int
+	var ret int
+	if dones[0] < dones[1] {
+		if dones[0] < dones[2] {
+			ret = dones[0]
+		} else {
+			ret = dones[2]
+		}
+	} else {
+		if dones[1] < dones[2] {
+			ret = dones[1]
+		} else {
+			ret = dones[2]
+		}
+	}
+	ret++
+
+	// GCing
+	mu.Lock()
+	var head *LogEntry
+	for head = tail; head.num != ret; head = head.prev {
+		// do nothing
+	}
+	head.prev = nil
+	mu.Unlock()
+
+	return ret
 }
 
 //
@@ -363,13 +414,13 @@ func (px *Paxos) Status(seq int) (bool, interface{}) {
 	if seq >= next {
 		return false, nil
 	} else {
+		// already GC-ed
+		if seq < Min() {
+			return false, nil
+		}
 		log := getLog(seq)
 		// log-entry already GC-ed
-		if log == nil {
-			return true, nil
-		} else {
-			return log.decided, log.v_a
-		}
+		return log.decided, log.v_a
 	}
 }
 
@@ -400,7 +451,7 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 	next = 0
 	tail = nil
 	done = -1
-	min = -1
+	dones = [3]int{-1, -1, -1}
 
 	if rpcs != nil {
 		// caller will create socket &c
