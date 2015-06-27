@@ -515,9 +515,6 @@ func TestMany(t *testing.T) {
 		pxa[i].Start(0, 0)
 	}
 
-	fmt.Println("50 instances")
-	time.Sleep(10 * time.Second)
-
 	const ninst = 50
 	for seq := 1; seq < ninst; seq++ {
 		// only 5 active instances, to limit the
@@ -605,9 +602,6 @@ func TestManyUnreliable(t *testing.T) {
 		pxa[i].unreliable = true
 		pxa[i].Start(0, 0)
 	}
-
-	fmt.Println("50 instances")
-	time.Sleep(10 * time.Second)
 
 	const ninst = 50
 	for seq := 1; seq < ninst; seq++ {
@@ -760,6 +754,7 @@ func TestPartition(t *testing.T) {
 		for i := 0; i < npaxos; i++ {
 			pxa[i].Start(seq, (seq*10)+i)
 		}
+
 		waitn(t, pxa, seq, 3)
 		if ndecided(t, pxa, seq) > 3 {
 			t.Fatalf("too many decided")

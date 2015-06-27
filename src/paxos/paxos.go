@@ -66,6 +66,7 @@ type NumVal struct {
 	Val     interface{}
 	Me      int
 	Done    int
+	Replied bool
 }
 
 func makeLogEntry(seq int) *LogEntry {
@@ -198,12 +199,12 @@ func (px *Paxos) Prepare(msg *NumVal, reply *NumVal) error {
 	px.lock()
 	defer px.unlock()
 
-	fmt.Printf("%d prepare-ack\n", px.me)
+	// fmt.Printf("%d prepare-ack\n", px.me)
 
 	log := px.extLog(msg.Seq)
 
 	if log.decided {
-		*reply = NumVal{true, msg.Seq, log.n_a, log.v_a, px.me, px.done}
+		*reply = NumVal{true, msg.Seq, log.n_a, log.v_a, px.me, px.done, true}
 
 		return nil
 	}
@@ -212,9 +213,9 @@ func (px *Paxos) Prepare(msg *NumVal, reply *NumVal) error {
 
 		px.updateDones(msg.Me, msg.Done)
 
-		*reply = NumVal{false, msg.Seq, log.n_a, log.v_a, px.me, px.done}
+		*reply = NumVal{false, msg.Seq, log.n_a, log.v_a, px.me, px.done, true}
 	} else {
-		*reply = NumVal{false, -1, -1, nil, px.me, px.done}
+		*reply = NumVal{false, -1, -1, nil, px.me, px.done, true}
 	}
 
 	return nil
@@ -229,7 +230,7 @@ func (px *Paxos) Accept(msg *NumVal, reply *NumVal) error {
 	log := px.extLog(msg.Seq)
 
 	if log.decided {
-		*reply = NumVal{true, msg.Seq, log.n_a, log.v_a, px.me, px.done}
+		*reply = NumVal{true, msg.Seq, log.n_a, log.v_a, px.me, px.done, true}
 
 		return nil
 	}
@@ -240,16 +241,16 @@ func (px *Paxos) Accept(msg *NumVal, reply *NumVal) error {
 
 		px.updateDones(msg.Me, msg.Done)
 
-		*reply = NumVal{false, msg.Seq, log.n_a, log.v_a, px.me, px.done}
+		*reply = NumVal{false, msg.Seq, log.n_a, log.v_a, px.me, px.done, true}
 	} else {
-		*reply = NumVal{false, -1, -1, nil, px.me, px.done}
+		*reply = NumVal{false, -1, -1, nil, px.me, px.done, true}
 	}
 
 	return nil
 }
 
 func (px *Paxos) decide(msg *NumVal) {
-	fmt.Printf("%d decide\n", px.me)
+	// fmt.Printf("%d decide\n", px.me)
 
 	log := px.extLog(msg.Seq)
 
@@ -278,31 +279,28 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 	// choose higher ballot number
 	var val interface{} = v
 
+	// fmt.Printf("%d proposing round\n", px.me)
 	// prepare
 	count := 0
 	n := -1
-	prepareMsg := NumVal{false, seq, ballot, v, px.me, px.done}
+	prepareMsg := NumVal{false, seq, ballot, v, px.me, px.done, true}
 	for i := 0; i < px.npaxos; i++ {
 		client, err := rpc.Dial("unix", px.peers[i])
 		if err != nil {
 			continue
 		}
 		var reply NumVal
+		reply.Replied = false
 
 		err = client.Call("Paxos.Prepare", &prepareMsg, &reply)
 		client.Close()
-		if err != nil {
+		if !reply.Replied {
 			continue
 		}
 
 		px.lock()
 		px.updateDones(reply.Me, reply.Done)
 		px.unlock()
-
-		if reply.Decided {
-			px.Decide(&reply, nil)
-			return true
-		}
 
 		if reply.Seq == -1 {
 			// rejected
@@ -324,7 +322,7 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 		return false
 	}
 
-	accept := NumVal{false, seq, ballot, val, px.me, px.done}
+	accept := NumVal{false, seq, ballot, val, px.me, px.done, true}
 	count = 0
 	for i := 0; i < px.npaxos; i++ {
 		client, err := rpc.Dial("unix", px.peers[i])
@@ -332,15 +330,12 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 			continue
 		}
 		var reply NumVal
+		reply.Replied = false
+
 		err = client.Call("Paxos.Accept", &accept, &reply)
 		client.Close()
-		if err != nil {
+		if !reply.Replied {
 			continue
-		}
-
-		if reply.Decided {
-			px.Decide(&reply, nil)
-			return true
 		}
 
 		px.lock()
@@ -355,6 +350,9 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 	// decided
 	if count > px.npaxos/2 {
 		for i := 0; i < px.npaxos; i++ {
+			if i == px.me {
+				continue
+			}
 			client, err := rpc.Dial("unix", px.peers[i])
 			if err != nil {
 				continue
@@ -363,6 +361,7 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 			client.Call("Paxos.Decide", &accept, &reply)
 			client.Close()
 		}
+		px.Decide(&accept, nil)
 		return true
 	} else {
 		return false
