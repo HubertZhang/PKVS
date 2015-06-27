@@ -122,7 +122,7 @@ func TestBasic(t *testing.T) {
 
 	fmt.Printf("Test: Single proposer ...\n")
 
-	pxa[0].Start(0, "hello")
+	pxa[0].Start(0, 7)
 	waitn(t, pxa, 0, npaxos)
 
 	fmt.Printf("  ... Passed\n")
@@ -341,6 +341,7 @@ func TestManyForget(t *testing.T) {
 	for i := 0; i < npaxos; i++ {
 		pxa[i].unreliable = false
 	}
+
 	time.Sleep(2 * time.Second)
 
 	for seq := 0; seq < maxseq; seq++ {
@@ -514,6 +515,9 @@ func TestMany(t *testing.T) {
 		pxa[i].Start(0, 0)
 	}
 
+	fmt.Println("50 instances")
+	time.Sleep(10 * time.Second)
+
 	const ninst = 50
 	for seq := 1; seq < ninst; seq++ {
 		// only 5 active instances, to limit the
@@ -601,6 +605,9 @@ func TestManyUnreliable(t *testing.T) {
 		pxa[i].unreliable = true
 		pxa[i].Start(0, 0)
 	}
+
+	fmt.Println("50 instances")
+	time.Sleep(10 * time.Second)
 
 	const ninst = 50
 	for seq := 1; seq < ninst; seq++ {

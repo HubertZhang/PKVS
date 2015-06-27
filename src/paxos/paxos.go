@@ -47,7 +47,7 @@ type Paxos struct {
 }
 
 type LogEntry struct {
-	mu      sync.Mutex
+	// mu      sync.Mutex
 	decided bool
 	num     int
 	prev    *LogEntry
@@ -71,7 +71,6 @@ type NumVal struct {
 func makeLogEntry(seq int) *LogEntry {
 	ret := new(LogEntry)
 
-	ret.mu = sync.Mutex{}
 	ret.decided = false
 	ret.num = seq
 	ret.prev = nil
@@ -126,6 +125,16 @@ func call(srv string, name string, args interface{}, reply interface{}) bool {
 //
 
 // get without create
+func (px *Paxos) lock() {
+	// fmt.Printf("%d locking\n", px.me)
+	px.mu.Lock()
+}
+
+func (px *Paxos) unlock() {
+	// fmt.Printf("%d unlocking\n", px.me)
+	px.mu.Unlock()
+}
+
 func (px *Paxos) getLog(seq int) *LogEntry {
 	var ret *LogEntry
 	// only read OPs
@@ -143,7 +152,6 @@ func (px *Paxos) getLog(seq int) *LogEntry {
 // get with create
 func (px *Paxos) extLog(seq int) *LogEntry {
 	var ret *LogEntry
-	// px.mu.Lock()
 	if seq >= px.next {
 		for i := px.next; i <= seq; i++ {
 			iter := makeLogEntry(i)
@@ -157,20 +165,20 @@ func (px *Paxos) extLog(seq int) *LogEntry {
 			// do nothing
 		}
 	}
-	// px.mu.Unlock()
 	return ret
 }
 
 func (px *Paxos) Start(seq int, v interface{}) {
 	// Your code here.
+	px.lock()
+	defer px.unlock()
+
 	if seq < px.min() {
 		return
 	}
 
 	// insert new instance into log-list
-	px.mu.Lock()
 	log := px.extLog(seq)
-	px.mu.Unlock()
 
 	// if already decided
 	if log.decided {
@@ -182,40 +190,29 @@ func (px *Paxos) Start(seq int, v interface{}) {
 
 func (px *Paxos) updateDones(peerNum int, doneVal int) {
 	if doneVal > px.dones[peerNum] {
-		px.mu.Lock()
 		px.dones[peerNum] = doneVal
-		px.mu.Unlock()
 	}
 }
 
 func (px *Paxos) Prepare(msg *NumVal, reply *NumVal) error {
-	fmt.Println("prepare-ack")
+	px.lock()
+	defer px.unlock()
 
-	px.mu.Lock()
+	fmt.Printf("%d prepare-ack\n", px.me)
+
 	log := px.extLog(msg.Seq)
-	px.mu.Unlock()
 
 	if log.decided {
-		log.mu.Lock()
-		px.mu.Lock()
 		*reply = NumVal{true, msg.Seq, log.n_a, log.v_a, px.me, px.done}
-		px.mu.Unlock()
-		log.mu.Unlock()
 
 		return nil
 	}
 	if msg.N > log.n_p {
-		log.mu.Lock()
 		log.n_p = msg.N
-		log.mu.Unlock()
 
 		px.updateDones(msg.Me, msg.Done)
 
-		log.mu.Lock()
-		px.mu.Lock()
 		*reply = NumVal{false, msg.Seq, log.n_a, log.v_a, px.me, px.done}
-		px.mu.Unlock()
-		log.mu.Unlock()
 	} else {
 		*reply = NumVal{false, -1, -1, nil, px.me, px.done}
 	}
@@ -224,37 +221,26 @@ func (px *Paxos) Prepare(msg *NumVal, reply *NumVal) error {
 }
 
 func (px *Paxos) Accept(msg *NumVal, reply *NumVal) error {
-	fmt.Println("accept-ack")
+	px.lock()
+	defer px.unlock()
 
-	px.mu.Lock()
+	// fmt.Println("accept-ack")
+
 	log := px.extLog(msg.Seq)
-	px.mu.Unlock()
 
 	if log.decided {
-		log.mu.Lock()
-		px.mu.Lock()
 		*reply = NumVal{true, msg.Seq, log.n_a, log.v_a, px.me, px.done}
-		px.mu.Unlock()
-		log.mu.Unlock()
 
 		return nil
 	}
 	if msg.N >= log.n_p {
-		log.mu.Lock()
 		log.n_p = msg.N
 		log.n_a = msg.N
 		log.v_a = msg.Val
-		log.mu.Unlock()
 
-		px.mu.Lock()
 		px.updateDones(msg.Me, msg.Done)
-		px.mu.Unlock()
 
-		log.mu.Lock()
-		px.mu.Lock()
 		*reply = NumVal{false, msg.Seq, log.n_a, log.v_a, px.me, px.done}
-		px.mu.Unlock()
-		log.mu.Unlock()
 	} else {
 		*reply = NumVal{false, -1, -1, nil, px.me, px.done}
 	}
@@ -262,118 +248,138 @@ func (px *Paxos) Accept(msg *NumVal, reply *NumVal) error {
 	return nil
 }
 
-func (px *Paxos) Decide(msg *NumVal, reply *bool) error {
-	fmt.Println("decide")
+func (px *Paxos) decide(msg *NumVal) {
+	fmt.Printf("%d decide\n", px.me)
 
-	px.mu.Lock()
 	log := px.extLog(msg.Seq)
-	px.mu.Unlock()
 
-	log.mu.Lock()
 	if !log.decided {
 		log.n_p = msg.N
 		log.n_a = msg.N
 		log.v_a = msg.Val
 		log.decided = true
 	}
-	log.mu.Unlock()
 	px.updateDones(msg.Me, msg.Done)
 
-	fmt.Printf("%d: ", px.me)
-	fmt.Println(log.v_a)
+	// fmt.Printf("%d: ", px.me)
+	// fmt.Println(log.v_a)
+}
+
+func (px *Paxos) Decide(msg *NumVal, reply *bool) error {
+	px.lock()
+	defer px.unlock()
+
+	px.decide(msg)
 
 	return nil
 }
 
-func (px *Paxos) Propose(seq int, v interface{}) {
-	ballot := px.me
-	for true {
-		// choose higher ballot number
-		ballot = ballot + px.npaxos
-		var val interface{} = v
+func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
+	// choose higher ballot number
+	var val interface{} = v
 
-		// prepare
-		count := 0
-		n := -1
-		prepareMsg := NumVal{false, seq, ballot, v, px.me, px.done}
-		for i := 0; i < px.npaxos; i++ {
-			client, err := rpc.Dial("unix", px.peers[i])
-			if err != nil {
-				continue
-			}
-			var reply NumVal
-			err = client.Call("Paxos.Prepare", &prepareMsg, &reply)
-			client.Close()
-			if err != nil {
-				continue
-			}
-
-			px.updateDones(reply.Me, reply.Done)
-
-			if reply.Decided {
-				px.Decide(&reply, nil)
-				return
-			}
-
-			if reply.Seq == -1 {
-				// rejected
-				continue
-			}
-			count++
-			if reply.N > n {
-				n = reply.N
-				if reply.Val == nil {
-					val = v
-				} else {
-					val = reply.Val
-				}
-			}
+	// prepare
+	count := 0
+	n := -1
+	prepareMsg := NumVal{false, seq, ballot, v, px.me, px.done}
+	for i := 0; i < px.npaxos; i++ {
+		client, err := rpc.Dial("unix", px.peers[i])
+		if err != nil {
+			continue
 		}
+		var reply NumVal
 
-		// not majority
-		if count <= px.npaxos/2 {
+		err = client.Call("Paxos.Prepare", &prepareMsg, &reply)
+		client.Close()
+		if err != nil {
 			continue
 		}
 
-		accept := NumVal{false, seq, ballot, val, px.me, px.done}
-		count = 0
+		px.lock()
+		px.updateDones(reply.Me, reply.Done)
+		px.unlock()
+
+		if reply.Decided {
+			px.Decide(&reply, nil)
+			return true
+		}
+
+		if reply.Seq == -1 {
+			// rejected
+			continue
+		}
+		count++
+		if reply.N > n {
+			n = reply.N
+			if reply.Val == nil {
+				val = v
+			} else {
+				val = reply.Val
+			}
+		}
+	}
+
+	// not majority
+	if count <= px.npaxos/2 {
+		return false
+	}
+
+	accept := NumVal{false, seq, ballot, val, px.me, px.done}
+	count = 0
+	for i := 0; i < px.npaxos; i++ {
+		client, err := rpc.Dial("unix", px.peers[i])
+		if err != nil {
+			continue
+		}
+		var reply NumVal
+		err = client.Call("Paxos.Accept", &accept, &reply)
+		client.Close()
+		if err != nil {
+			continue
+		}
+
+		if reply.Decided {
+			px.Decide(&reply, nil)
+			return true
+		}
+
+		px.lock()
+		px.updateDones(reply.Me, reply.Done)
+		px.unlock()
+
+		if reply.Seq != -1 {
+			count++
+		}
+	}
+
+	// decided
+	if count > px.npaxos/2 {
 		for i := 0; i < px.npaxos; i++ {
 			client, err := rpc.Dial("unix", px.peers[i])
 			if err != nil {
 				continue
 			}
-			var reply NumVal
-			err = client.Call("Paxos.Accept", &accept, &reply)
+			var reply bool
+			client.Call("Paxos.Decide", &accept, &reply)
 			client.Close()
-			if err != nil {
-				continue
-			}
-
-			if reply.Decided {
-				px.Decide(&reply, nil)
-				return
-			}
-
-			px.updateDones(reply.Me, reply.Done)
-			if reply.Seq != -1 {
-				count++
-			}
 		}
-
-		// decided
-		if count > px.npaxos/2 {
-			for i := 0; i < px.npaxos; i++ {
-				client, err := rpc.Dial("unix", px.peers[i])
-				if err != nil {
-					continue
-				}
-				var reply bool
-				client.Call("Paxos.Decide", &accept, &reply)
-				client.Close()
-			}
-			return
-		}
+		return true
+	} else {
+		return false
 	}
+}
+
+func (px *Paxos) Propose(seq int, v interface{}) {
+	ballot := px.me + 1
+	count := 0
+	for true {
+		count = count + 1
+		if px.proposeOneRound(seq, v, ballot) {
+			break
+		}
+		ballot = ballot + px.npaxos
+	}
+	// fmt.Printf("%d: %d times\n", px.me, count)
 }
 
 //
@@ -384,8 +390,8 @@ func (px *Paxos) Propose(seq int, v interface{}) {
 //
 func (px *Paxos) Done(seq int) {
 	// Your code here.
-	px.mu.Lock()
-	defer px.mu.Unlock()
+	px.lock()
+	defer px.unlock()
 
 	if seq <= px.done {
 		return
@@ -409,8 +415,8 @@ func (px *Paxos) Done(seq int) {
 //
 func (px *Paxos) Max() int {
 	// Your code here.
-	px.mu.Lock()
-	defer px.mu.Unlock()
+	px.lock()
+	defer px.unlock()
 
 	return px.next - 1
 }
@@ -462,16 +468,12 @@ func (px *Paxos) Min() int {
 	// You code here.
 
 	// find min-val among dones []int
-	// GCing
-	px.mu.Lock()
-	ret := px.dones[0]
-	for i := 1; i < px.npaxos; i++ {
-		if px.dones[i] < ret {
-			ret = px.dones[i]
-		}
-	}
-	ret++
+	px.lock()
+	defer px.unlock()
 
+	ret := px.min() + 1
+
+	// GCing
 	var head *LogEntry
 	for head = px.tail; head != nil && head.num != ret; head = head.prev {
 		// do nothing
@@ -479,7 +481,6 @@ func (px *Paxos) Min() int {
 	if head != nil {
 		head.prev = nil
 	}
-	px.mu.Unlock()
 
 	return ret
 }
@@ -493,8 +494,8 @@ func (px *Paxos) Min() int {
 //
 func (px *Paxos) Status(seq int) (bool, interface{}) {
 	// Your code here.
-	px.mu.Lock()
-	defer px.mu.Lock()
+	px.lock()
+	defer px.unlock()
 
 	if seq >= px.next {
 		return false, nil
