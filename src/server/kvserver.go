@@ -3,6 +3,7 @@ package main
 import (
 	"paxos"
 	"time"
+	"sync"
 )
 
 const (
@@ -28,12 +29,28 @@ type Item struct {
 	Next           *Item
 }
 
+type Server struct {
+	peer      *paxos.Paxos
+	tail      *Item
+	me        int
+
+	max_seq   int
+	tem_num   int
+
+	check_max_lock  *sync.Mutex
+	check_done_lock *sync.Mutex
+}
+
 func getServer(paxos *paxos.Paxos, me int) *Server {
 	if server == nil {
 		server = new(Server)
 		server.peer = paxos
 		server.tail = newItem(0)
 		server.me = me
+		server.max_seq = 0
+		server.tem_num = 0
+		server.check_max_lock = new(sync.Mutex)
+		server.check_done_lock = new(sync.Mutex)
 	}
 	return server
 }
@@ -44,11 +61,6 @@ func newItem(seq int) *Item {
 	return item
 }
 
-type Server struct {
-	peer *paxos.Paxos
-	tail *Item
-	me   int
-}
 
 func (self *Server) newOperation(op_code int, key string, value string) {
 	op := new(Op)
@@ -90,10 +102,25 @@ func (self *Server) checkStatus(seq int) Op {
 }
 
 func (self *Server) getSeq() int {
-	return self.peer.Max() + 1
+	self.check_max_lock.Lock()
+	rtn_val := self.peer.Max() + 1
+	self.check_max_lock.Unlock()
+
+	return rtn_val
 }
 
 func (self *Server) addOp(seq int, op Op) {
+	// ERROR!!!!!!!!!! LOCK IS NEEDED!!!!!!!!
+	self.check_done_lock.Lock()
+	if seq > self.max_seq {
+		self.max_seq = seq
+	}
+	self.tem_num = self.tem_num + 1
+	if self.tem_num == self.max_seq {
+		self.peer.Done(self.max_seq)
+	}
+	self.check_done_lock.Lock()
+
 	var pre_pos *Item = nil
 	tem_pos := self.tail
 	for true {
