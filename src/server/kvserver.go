@@ -72,7 +72,7 @@ func (self *Server) newOperation(op_code int, key string, value string) (bool, s
 	for true {
 		seq := self.getSeq()
 
-		self.peer.Start(seq, op)
+		self.peer.Start(seq, *op)
 
 		decision := self.checkStatus(seq)
 
@@ -119,7 +119,7 @@ func (self *Server) addOp(seq int, op Op) {
 	if self.tem_num == self.max_seq {
 		self.peer.Done(self.max_seq)
 	}
-	self.check_done_lock.Lock()
+	self.check_done_lock.Unlock()
 
 	var pre_pos *Item = nil
 	tem_pos := self.tail
@@ -128,8 +128,9 @@ func (self *Server) addOp(seq int, op Op) {
 			new_item := newItem(seq)
 			new_item.Op = op
 			new_item.Next = tem_pos
-
-			pre_pos.Next = new_item
+			if pre_pos != nil {
+				pre_pos.Next = new_item
+			}
 
 			break
 		} else if tem_pos.SequenceNumber > seq {
