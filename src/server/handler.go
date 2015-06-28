@@ -76,6 +76,7 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDump(w http.ResponseWriter, r *http.Request) {
+	writeResponse(server.dump(), w)
 }
 
 func handleCount(w http.ResponseWriter, r *http.Request) {

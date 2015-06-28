@@ -4,6 +4,7 @@ import (
 	"paxos"
 	"time"
 	"sync"
+	"encoding/json"
 )
 
 const (
@@ -143,4 +144,28 @@ func (self *Server) addOp(seq int, op Op) {
 			break
 		}
 	}
+}
+
+func (self *Server) dump() []byte {
+	item_set := make([]Op, self.tem_num, self.tem_num)
+
+	tem_pos := self.tail
+	tem_cnt := 0
+
+	for true {
+		if tem_pos == nil {
+			break
+		}
+
+		item_set[tem_cnt] = tem_pos.Op
+
+		tem_cnt++
+		tem_pos = tem_pos.Next
+	}
+
+	rsp, err := json.Marshal(item_set)
+	if err != nil {
+		rsp = returnError()
+	}
+	return rsp
 }
