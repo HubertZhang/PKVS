@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"encoding/json"
+	"kvserver"
 )
 
 func handleGet(w http.ResponseWriter, r *http.Request) {
