@@ -77,6 +77,14 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 	writeResponse(rsp, w)
 }
 
+func handleDump(w http.ResponseWriter, r *http.Request) {
+}
+
+func handleCount(w http.ResponseWriter, r *http.Request) {
+}
+
+func handleHalt(w http.ResponseWriter, r *http.Request) {
+}
 
 func writeResponse(content []byte, w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "application/json")
