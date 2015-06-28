@@ -28,6 +28,7 @@ import "syscall"
 import "sync"
 import "fmt"
 import "math/rand"
+import "time"
 
 type Paxos struct {
 	mu         sync.Mutex
@@ -306,6 +307,7 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 			// rejected
 			continue
 		}
+
 		count++
 		if reply.N > n {
 			n = reply.N
@@ -377,6 +379,7 @@ func (px *Paxos) Propose(seq int, v interface{}) {
 			break
 		}
 		ballot = ballot + px.npaxos
+		time.Sleep(10 * time.Millisecond)
 	}
 	// fmt.Printf("%d: %d times\n", px.me, count)
 }
