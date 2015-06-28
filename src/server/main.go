@@ -10,5 +10,9 @@ func main () {
 	http.HandleFunc("/kv/delete", handleDelete)
 	http.HandleFunc("/kv/update", handleUpdate)
 
+	http.HandleFunc("/kvman/dump", handleDump)
+	http.HandleFunc("/kvman/count", handleCount)
+	http.HandleFunc("/kvman/halt", handleHalt)
+
 	http.ListenAndServe(":8080", nil)
 }

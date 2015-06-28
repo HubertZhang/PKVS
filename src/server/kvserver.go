@@ -62,7 +62,7 @@ func newItem(seq int) *Item {
 }
 
 
-func (self *Server) newOperation(op_code int, key string, value string) {
+func (self *Server) newOperation(op_code int, key string, value string) (bool, string) {
 	op := new(Op)
 	op.Operation = op_code
 	op.Key = key
@@ -79,11 +79,12 @@ func (self *Server) newOperation(op_code int, key string, value string) {
 		self.addOp(seq, decision)
 
 		if decision.Owner == self.me {
-			self.performOp(seq, decision)
-			break
+			return self.performOp(seq, decision)
 		}
 
 	}
+
+	return false, ""
 }
 
 func (self *Server) checkStatus(seq int) Op {
@@ -110,7 +111,6 @@ func (self *Server) getSeq() int {
 }
 
 func (self *Server) addOp(seq int, op Op) {
-	// ERROR!!!!!!!!!! LOCK IS NEEDED!!!!!!!!
 	self.check_done_lock.Lock()
 	if seq > self.max_seq {
 		self.max_seq = seq
