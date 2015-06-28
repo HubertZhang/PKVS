@@ -285,19 +285,13 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 	n := -1
 	prepareMsg := NumVal{false, seq, ballot, v, px.me, px.done, true}
 	for i := 0; i < px.npaxos; i++ {
-		client, err := rpc.Dial("unix", px.peers[i])
-		if err != nil {
-			continue
-		}
 		var reply NumVal
+		var finished bool
 		reply.Replied = false
-
-		err = client.Call("Paxos.Prepare", &prepareMsg, &reply)
-		client.Close()
-		if !reply.Replied {
+		finished = call(px.peers[i], "Paxos.Prepare", &prepareMsg, &reply)
+		if !finished || !reply.Replied {
 			continue
 		}
-
 		px.lock()
 		px.updateDones(reply.Me, reply.Done)
 		px.unlock()
@@ -325,16 +319,10 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 	accept := NumVal{false, seq, ballot, val, px.me, px.done, true}
 	count = 0
 	for i := 0; i < px.npaxos; i++ {
-		client, err := rpc.Dial("unix", px.peers[i])
-		if err != nil {
-			continue
-		}
 		var reply NumVal
 		reply.Replied = false
-
-		err = client.Call("Paxos.Accept", &accept, &reply)
-		client.Close()
-		if !reply.Replied {
+		var finished = call(px.peers[i], "Paxos.Accept", &accept, &reply)
+		if !finished || !reply.Replied {
 			continue
 		}
 
@@ -353,13 +341,8 @@ func (px *Paxos) proposeOneRound(seq int, v interface{}, ballot int) bool {
 			if i == px.me {
 				continue
 			}
-			client, err := rpc.Dial("unix", px.peers[i])
-			if err != nil {
-				continue
-			}
 			var reply bool
-			client.Call("Paxos.Decide", &accept, &reply)
-			client.Close()
+			call(px.peers[i], "Paxos.Decide", &accept, &reply)
 		}
 		px.Decide(&accept, nil)
 		return true
