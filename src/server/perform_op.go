@@ -118,7 +118,7 @@ func (self *Server) moveToTarget(op_list []int, key string) (int, *Item) {
 
 		flag := false
 		for _, op := range op_list {
-			if tem_pos.Op.Operation == op && tem_pos.Op.Key == key {
+			if tem_pos.Op.Operation == op && tem_pos.Op.Key == key && tem_pos.Op.Valid {
 				flag = true
 				break
 			}
@@ -135,4 +135,11 @@ func (self *Server) moveToTarget(op_list []int, key string) (int, *Item) {
 	}
 
 	return tem_pos.SequenceNumber, tem_pos
+}
+
+func (self *Server) dealWithHole(seq int) {
+	op := self.checkStatus(seq)
+	item := self.addOp(seq, op)
+	flag, _ := self.performOp(seq, op)
+	item.Op.Valid = flag
 }

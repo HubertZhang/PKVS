@@ -23,6 +23,7 @@ type Op struct {
 	Key            string
 	Value          string
 	Owner          int
+	Valid          bool
 }
 
 type Item struct {
@@ -83,10 +84,12 @@ func (self *Server) newOperation(op_code int, key string, value string) (bool, s
 
 		decision := self.checkStatus(seq)
 
-		self.addOp(seq, decision)
+		item := self.addOp(seq, decision)
 
 		if decision.Owner == self.me {
-			return self.performOp(seq, decision)
+			flag, result := self.performOp(seq, decision)
+			item.Op.Valid = flag
+			return flag, result
 		}
 
 	}
@@ -122,7 +125,7 @@ func (self *Server) getSeq() int {
 	return rtn_val
 }
 
-func (self *Server) addOp(seq int, op Op) {
+func (self *Server) addOp(seq int, op Op) *Item {
 	fmt.Println("New Op is added:")
 	fmt.Println(strconv.Itoa(seq) + ", " + strconv.Itoa(op.Operation) + ", " + op.Key + ", " + op.Value)
 
@@ -138,9 +141,10 @@ func (self *Server) addOp(seq int, op Op) {
 
 	var pre_pos *Item = nil
 	tem_pos := self.tail
+	var new_item *Item = nil
 	for true {
 		if tem_pos.SequenceNumber < seq {
-			new_item := newItem(seq)
+			new_item = newItem(seq)
 			new_item.Op.Operation = op.Operation
 			new_item.Op.Key = op.Key
 			new_item.Op.Value = op.Value
@@ -163,6 +167,7 @@ func (self *Server) addOp(seq int, op Op) {
 			break
 		}
 	}
+	return new_item
 }
 
 func (self *Server) dump() []byte {
