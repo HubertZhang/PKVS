@@ -5,13 +5,15 @@ import (
 	"time"
 	"sync"
 	"encoding/json"
+	"fmt"
+	"strconv"
 )
 
 const (
-	INSERT = 0
-	DELETE = 1
-	GET    = 2
-	UPDATE = 3
+	INSERT = 1
+	DELETE = 2
+	GET    = 3
+	UPDATE = 4
 )
 
 var server *Server = nil
@@ -25,7 +27,7 @@ type Op struct {
 
 type Item struct {
 	SequenceNumber int
-	Op             Op
+	Op             *Op
 
 	Next           *Item
 }
@@ -59,11 +61,15 @@ func getServer(paxos *paxos.Paxos, me int) *Server {
 func newItem(seq int) *Item {
 	item := new(Item)
 	item.SequenceNumber = seq
+	item.Op = new(Op)
 	return item
 }
 
 
 func (self *Server) newOperation(op_code int, key string, value string) (bool, string) {
+	fmt.Println("New Operation with: ")
+	fmt.Println(strconv.Itoa(op_code) + ", " + key + ", " + value)
+
 	op := new(Op)
 	op.Operation = op_code
 	op.Key = key
@@ -105,13 +111,21 @@ func (self *Server) checkStatus(seq int) Op {
 
 func (self *Server) getSeq() int {
 	self.check_max_lock.Lock()
-	rtn_val := self.peer.Max() + 1
+	rtn_val := self.peer.Max()
+	if self.peer.Max() == -1 {
+		rtn_val = 1
+	} else {
+		rtn_val = rtn_val + 1
+	}
 	self.check_max_lock.Unlock()
 
 	return rtn_val
 }
 
 func (self *Server) addOp(seq int, op Op) {
+	fmt.Println("New Op is added:")
+	fmt.Println(strconv.Itoa(seq) + ", " + strconv.Itoa(op.Operation) + ", " + op.Key + ", " + op.Value)
+
 	self.check_done_lock.Lock()
 	if seq > self.max_seq {
 		self.max_seq = seq
@@ -127,10 +141,15 @@ func (self *Server) addOp(seq int, op Op) {
 	for true {
 		if tem_pos.SequenceNumber < seq {
 			new_item := newItem(seq)
-			new_item.Op = op
+			new_item.Op.Operation = op.Operation
+			new_item.Op.Key = op.Key
+			new_item.Op.Value = op.Value
 			new_item.Next = tem_pos
 			if pre_pos != nil {
 				pre_pos.Next = new_item
+			}
+			if tem_pos == self.tail {
+				self.tail = new_item
 			}
 
 			break
@@ -147,7 +166,7 @@ func (self *Server) addOp(seq int, op Op) {
 }
 
 func (self *Server) dump() []byte {
-	item_set := make([]Op, self.tem_num, self.tem_num)
+	item_set := make([]Op, self.tem_num + 1, self.tem_num + 1)
 
 	tem_pos := self.tail
 	tem_cnt := 0
@@ -157,7 +176,7 @@ func (self *Server) dump() []byte {
 			break
 		}
 
-		item_set[tem_cnt] = tem_pos.Op
+		item_set[tem_cnt] = *tem_pos.Op
 
 		tem_cnt++
 		tem_pos = tem_pos.Next

@@ -1,5 +1,10 @@
 package main
 
+import (
+	"strconv"
+	"fmt"
+)
+
 func (self *Server) performOp(seq int, op Op) (bool, string) {
 	switch op.Operation {
 	case GET: return self.performGET(seq, op)
@@ -36,6 +41,8 @@ func (self *Server) performGET(seq int, op Op) (bool, string) {
 func (self *Server) performINSERT(seq int, op Op) (bool, string) {
 	list := []int {INSERT, DELETE}
 	seq, item := self.moveToTarget(list, op.Key)
+	fmt.Println("Move to:")
+	fmt.Println(strconv.Itoa(seq))
 	if seq == 0 {
 		return true, ""
 	}
@@ -102,8 +109,8 @@ func (self *Server) performDELETE(seq int, op Op) (bool, string) {
 }
 
 func (self *Server) moveToTarget(op_list []int, key string) (int, *Item) {
-	var pre_pos *Item = nil
-	var tem_pos *Item = self.tail
+	var pre_pos *Item = self.tail
+	var tem_pos *Item = self.tail.Next
 	for true {
 		if tem_pos.SequenceNumber == 0 {
 			return 0, nil
