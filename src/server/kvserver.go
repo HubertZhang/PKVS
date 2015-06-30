@@ -154,6 +154,7 @@ func (self *Server) addOp(seq int, op Op) *Item {
 			new_item.Op.Operation = op.Operation
 			new_item.Op.Key = op.Key
 			new_item.Op.Value = op.Value
+			new_item.Op.Owner = op.Owner
 
 			new_item.Next = tem_pos
 			if pre_pos != nil {
