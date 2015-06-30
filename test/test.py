@@ -92,7 +92,6 @@ word_pool = ["key1", "_key2", "^%!@#$%^&*()key3", "{key4", "key5_+=",
              "0chp3\"`", ")*HPB", "啦啦啦", "+++", "~!@#GX", "{\ndAFqw}"]
 
 def normal_consistency_test(n): #random
-    read_config()
     start_all()
     m = len(word_pool)-1
     d = {}
@@ -150,3 +149,10 @@ def normal_consistency_test(n): #random
         print "d3",d3
     print "Finish"
     shutdown_all()
+
+def main():
+    read_config()
+    normal_consistency_test(20)
+
+if __name__ == "__main__":
+    main()
