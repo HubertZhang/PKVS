@@ -1,4 +1,4 @@
-# use UTF-8
+# coding=utf-8
 __author__ = "KevinXuxuxu"
 
 import requests
@@ -9,6 +9,9 @@ from  random import randint
 import time
 import subprocess
 import threading
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 servers = [""]
 servers_man = [""]
@@ -139,7 +142,7 @@ def normal_consistency_test(n): #random
     d1 = organized_dump(1)
     d2 = organized_dump(2)
     d3 = organized_dump(3)
-    if d == d1 and d1 == d2 and d2 == d3:
+    if d1 == d2 and d2 == d3:
         print "Perfect"
     else:
         print "Inconsistency!"
@@ -152,7 +155,7 @@ def normal_consistency_test(n): #random
 
 def main():
     read_config()
-    normal_consistency_test(20)
+    normal_consistency_test(200)
 
 if __name__ == "__main__":
     main()
