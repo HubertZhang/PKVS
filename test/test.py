@@ -89,10 +89,12 @@ def count(me):
     r = requests.get(servers_man[me]+'countkey', params={})
     return r.json(), r.elapsed.total_seconds()
 
-word_pool = ["key1", "_key2", "^%!@#$%^&*()key3", "{key4", "key5_+=",
+temp = ["key1", "_key2", "^%!@#$%^&*()key3", "{key4", "key5_+=",
              "key6-=_+-[", "key7测试", "{key8=", "_key9\'\"", "]key10\\|",
              "12421", "aslf\rjhalgha", "657468sv\0ca", "18726\a(^&(^(",
              "0chp3\"`", ")*HPB", "啦啦啦", "+++", "~!@#GX", "{\ndAFqw}"]
+
+word_pool = ["df2738r7yweh","hjdf834","f3","j843","jsdf82342","jjjjf","jnd883","jhjf82","2548695","dfu3qw","jdf83"]
 
 def normal_consistency_test(n): #random
     start_all()
@@ -192,37 +194,13 @@ def high_concurrency_test(n): # random
         print "d2",d2
         print "d3",d3
 
-    time.sleep(10)
-    d1 = organized_dump(1)
-    d2 = organized_dump(2)
-    d3 = organized_dump(3)
-    if d1 == d2 and d2 == d3:
-        print "Perfect"
-    else:
-        print "Inconsistency!"
-        print "d1",d1
-        print "d2",d2
-        print "d3",d3
-
-    time.sleep(10)
-    d1 = organized_dump(1)
-    d2 = organized_dump(2)
-    d3 = organized_dump(3)
-    if d1 == d2 and d2 == d3:
-        print "Perfect"
-    else:
-        print "Inconsistency!"
-        print "d1",d1
-        print "d2",d2
-        print "d3",d3
-
     print "Finish"
     shutdown_all()
 
 
 def main():
     read_config()
-    #normal_consistency_test(200)
+    #normal_consistency_test(50)
     high_concurrency_test(20)
 
 if __name__ == "__main__":
