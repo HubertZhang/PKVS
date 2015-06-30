@@ -159,6 +159,7 @@ def high_concurrency_test(n): # random
     start_all()
     time.sleep(2)
     m = len(word_pool)-1
+    threads = []
     for i in range(0,n):
         act = randint(1,4)
         print "------ %s: %s ------" %(str(i), str(act))
@@ -166,28 +167,38 @@ def high_concurrency_test(n): # random
             t = th.Thread(target=get, args=(randint(1,3), word_pool[randint(0,m)],))
             t.setDaemon(True)
             t.start()
+            threads.append(t)
             #t.join()
         elif act == 2:
             t = th.Thread(target=insert, args=(randint(1,3), word_pool[randint(0,m)], word_pool[randint(0,m)],))
             t.setDaemon(True)
             t.start()
+            threads.append(t)
             #t.join()
         elif act == 3:
             t = th.Thread(target=update, args=(randint(1,3), word_pool[randint(0,m)], word_pool[randint(0,m)],))
             t.setDaemon(True)
             t.start()
+            threads.append(t)
             #t.join()
         else:
             t = th.Thread(target=delete, args=(randint(1,3), word_pool[randint(0,m)],))
             t.setDaemon(True)
             t.start()
+            threads.append(t)
             #t.join()
-    time.sleep(10)
+
+    #time.sleep(10)
+    for t in threads:
+        t.join()
     d1 = organized_dump(1)
     d2 = organized_dump(2)
     d3 = organized_dump(3)
     if d1 == d2 and d2 == d3:
         print "Perfect"
+        print "d1",d1
+        print "d2",d2
+        print "d3",d3
     else:
         print "Inconsistency!"
         print "d1",d1
@@ -201,7 +212,7 @@ def high_concurrency_test(n): # random
 def main():
     read_config()
     #normal_consistency_test(50)
-    high_concurrency_test(20)
+    high_concurrency_test(500)
 
 if __name__ == "__main__":
     main()
