@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strconv"
-	"fmt"
+	// "strconv"
+	// "fmt"
 )
 
 func (self *Server) performOp(seq int, op Op) (bool, string) {
@@ -24,8 +24,8 @@ func (self *Server) performGET(seq int, op Op) (bool, string) {
 	}
 
 	if seq == -1 {
-		// There is a hole in the chain
-		return false, ""
+		self.dealWithHole(item.SequenceNumber - 1)
+		return self.performGET(seq, op)
 	}
 
 	switch item.Op.Operation {
@@ -41,15 +41,15 @@ func (self *Server) performGET(seq int, op Op) (bool, string) {
 func (self *Server) performINSERT(seq int, op Op) (bool, string) {
 	list := []int {INSERT, DELETE}
 	seq, item := self.moveToTarget(list, op.Key)
-	fmt.Println("Move to:")
-	fmt.Println(strconv.Itoa(seq))
+	// fmt.Println("Move to:")
+	// fmt.Println(strconv.Itoa(seq))
 	if seq == 0 {
 		return true, ""
 	}
 
 	if seq == -1 {
-		// There is a hole in the chain
-		return false, ""
+		self.dealWithHole(item.SequenceNumber - 1)
+		return self.performINSERT(seq, op)
 	}
 
 	switch item.Op.Operation {
@@ -71,8 +71,8 @@ func (self *Server) performUPDATE(seq int, op Op) (bool, string) {
 	}
 
 	if seq == -1 {
-		// There is a hole in the chain
-		return false, ""
+		self.dealWithHole(item.SequenceNumber - 1)
+		return self.performUPDATE(seq, op)
 	}
 
 	switch item.Op.Operation {
@@ -94,8 +94,8 @@ func (self *Server) performDELETE(seq int, op Op) (bool, string) {
 	}
 
 	if seq == -1 {
-		// There is a hole in the chain
-		return false, ""
+		self.dealWithHole(item.SequenceNumber - 1)
+		return self.performDELETE(seq, op)
 	}
 
 	switch item.Op.Operation {
@@ -112,6 +112,13 @@ func (self *Server) moveToTarget(op_list []int, key string) (int, *Item) {
 	var pre_pos *Item = self.tail
 	var tem_pos *Item = self.tail.Next
 	for true {
+		// fmt.Print("Tempos Number:")
+		// fmt.Println(tem_pos.SequenceNumber)
+		// fmt.Print("Prepos Number:")
+		// fmt.Println(pre_pos.SequenceNumber)
+		if pre_pos != nil && tem_pos.SequenceNumber != pre_pos.SequenceNumber - 1 {
+			return -1, pre_pos
+		}
 		if tem_pos.SequenceNumber == 0 {
 			return 0, nil
 		}
@@ -127,9 +134,6 @@ func (self *Server) moveToTarget(op_list []int, key string) (int, *Item) {
 			break
 		}
 
-		if pre_pos != nil && tem_pos.SequenceNumber != pre_pos.SequenceNumber - 1 {
-			return -1, nil
-		}
 		pre_pos = tem_pos
 		tem_pos = tem_pos.Next
 	}
@@ -138,6 +142,7 @@ func (self *Server) moveToTarget(op_list []int, key string) (int, *Item) {
 }
 
 func (self *Server) dealWithHole(seq int) {
+	// fmt.Println("Hole in " + strconv.Itoa(seq))
 	op := self.checkStatus(seq)
 	item := self.addOp(seq, op)
 	flag, _ := self.performOp(seq, op)
