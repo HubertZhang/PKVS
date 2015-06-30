@@ -518,6 +518,8 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 	// Your initialization code here.
 	px.npaxos = len(peers)
+	fmt.Print("Peers Number: ")
+	fmt.Println(len(peers))
 	px.mu = sync.Mutex{}
 	px.next = 0
 	px.tail = nil

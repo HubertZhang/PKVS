@@ -26,7 +26,10 @@ func main () {
 
 	paxos_peer = paxos.Make(peers, me-1, nil)
 	getServer(paxos_peer, me-1)
-	fmt.Println("here")
+	fmt.Print("Peers Number:")
+	fmt.Println(len(peers))
+	fmt.Print("Ports Number:")
+	fmt.Println(len(port))
 	http.HandleFunc("/kv/insert", handleInsert)
 	http.HandleFunc("/kv/get", handleGet)
 	http.HandleFunc("/kv/delete", handleDelete)
@@ -35,9 +38,9 @@ func main () {
 	http.HandleFunc("/kvman/dump", handleDump)
 	http.HandleFunc("/kvman/count", handleCount)
 	http.HandleFunc("/kvman/halt", handleHalt)
-	fmt.Println(":"+strconv.Itoa(port))
+	fmt.Println(":"+strconv.Itoa(port[me-1]))
 
-	err = http.ListenAndServe(":"+strconv.Itoa(port), nil)
+	err = http.ListenAndServe(":"+strconv.Itoa(port[me-1]), nil)
 	if err != nil {
 		fmt.Println(err)
 	}
