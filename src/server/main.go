@@ -38,6 +38,7 @@ func main () {
 	http.HandleFunc("/kvman/dump", handleDump)
 	http.HandleFunc("/kvman/countkey", handleCount)
 	http.HandleFunc("/kvman/shutdown", handleHalt)
+	http.HandleFunc("/kvman/dumplog", handleDumpLog)
 	fmt.Println(":"+strconv.Itoa(port[me-1]))
 
 	err = http.ListenAndServe(":"+strconv.Itoa(port[me-1]), nil)

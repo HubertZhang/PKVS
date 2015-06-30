@@ -42,7 +42,8 @@ type Server struct {
 	tem_num   int
 
 	check_max_lock  *sync.Mutex
-	check_done_lock *sync.Mutex
+	// check_done_lock *sync.Mutex
+	edit_list_lock  *sync.Mutex
 }
 
 func getServer(paxos *paxos.Paxos, me int) *Server {
@@ -54,7 +55,8 @@ func getServer(paxos *paxos.Paxos, me int) *Server {
 		server.max_seq = 0
 		server.tem_num = 0
 		server.check_max_lock = new(sync.Mutex)
-		server.check_done_lock = new(sync.Mutex)
+		// server.check_done_lock = new(sync.Mutex)
+		server.edit_list_lock = new(sync.Mutex)
 	}
 	return server
 }
@@ -128,10 +130,13 @@ func (self *Server) getSeq() int {
 }
 
 func (self *Server) addOp(seq int, op Op) *Item {
-	fmt.Println("New Op is added:")
-	fmt.Println(strconv.Itoa(seq) + ", " + strconv.Itoa(op.Operation) + ", " + op.Key + ", " + op.Value)
+	self.edit_list_lock.Lock()
+	defer self.edit_list_lock.Unlock()
 
-	self.check_done_lock.Lock()
+	fmt.Println("New Op is added:")
+	fmt.Println(strconv.Itoa(seq) + ", " + strconv.Itoa(op.Operation) + ", " + op.Key + ", " + op.Value + ", " + strconv.Itoa(op.Owner))
+
+	// self.check_done_lock.Lock()
 	if seq > self.max_seq {
 		self.max_seq = seq
 	}
@@ -139,7 +144,7 @@ func (self *Server) addOp(seq int, op Op) *Item {
 	if self.tem_num == self.max_seq {
 		self.peer.Done(self.max_seq)
 	}
-	self.check_done_lock.Unlock()
+	// self.check_done_lock.Unlock()
 
 	var pre_pos *Item = nil
 	tem_pos := self.tail
@@ -150,6 +155,7 @@ func (self *Server) addOp(seq int, op Op) *Item {
 			new_item.Op.Operation = op.Operation
 			new_item.Op.Key = op.Key
 			new_item.Op.Value = op.Value
+
 			new_item.Next = tem_pos
 			if pre_pos != nil {
 				pre_pos.Next = new_item
@@ -157,7 +163,6 @@ func (self *Server) addOp(seq int, op Op) *Item {
 			if tem_pos == self.tail {
 				self.tail = new_item
 			}
-
 			break
 		} else if tem_pos.SequenceNumber > seq {
 			if tem_pos.SequenceNumber == 0 {
@@ -166,6 +171,7 @@ func (self *Server) addOp(seq int, op Op) *Item {
 			pre_pos = tem_pos
 			tem_pos = tem_pos.Next
 		} else {
+			fmt.Println("Error! Try to Add an operation already exist!")
 			break
 		}
 	}
@@ -173,6 +179,10 @@ func (self *Server) addOp(seq int, op Op) *Item {
 }
 
 func (self *Server) dump() []byte {
+	if self.peer.Max() > self.tail.SequenceNumber {
+		self.dealWithHole(self.peer.Max())
+	}
+
 	item_set := make([]Op, self.tem_num + 1, self.tem_num + 1)
 
 	tem_pos := self.tail

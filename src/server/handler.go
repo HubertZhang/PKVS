@@ -88,6 +88,10 @@ func handleHalt(w http.ResponseWriter, r *http.Request) {
 	os.Exit(0)
 }
 
+func handleDumpLog(w http.ResponseWriter, r *http.Request) {
+	writeResponse(server.dump(), w)
+}
+
 func returnError() []byte {
 	data := struct {
 		Success bool `json:"success"`
