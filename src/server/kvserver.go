@@ -90,11 +90,9 @@ func (self *Server) newOperation(op_code int, key string, value string) (bool, s
 		item := self.addOp(seq, decision)
 		flag, result := self.performOp(seq, decision)
 		item.Op.Valid = flag
-
 		if decision.Owner == self.me {
 			return flag, result
 		}
-
 	}
 
 	return false, ""
@@ -171,7 +169,7 @@ func (self *Server) addOp(seq int, op Op) *Item {
 			pre_pos = tem_pos
 			tem_pos = tem_pos.Next
 		} else {
-			fmt.Println("Error! Try to Add an operation already exist!")
+			new_item = tem_pos
 			break
 		}
 	}
