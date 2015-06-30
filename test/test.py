@@ -8,7 +8,7 @@ import json
 from  random import randint
 import time
 import subprocess
-import threading
+import threading as th
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -153,9 +153,77 @@ def normal_consistency_test(n): #random
     print "Finish"
     shutdown_all()
 
+def high_concurrency_test(n): # random
+    start_all()
+    time.sleep(2)
+    m = len(word_pool)-1
+    for i in range(0,n):
+        act = randint(1,4)
+        print "------ %s: %s ------" %(str(i), str(act))
+        if act == 1:
+            t = th.Thread(target=get, args=(randint(1,3), word_pool[randint(0,m)],))
+            t.setDaemon(True)
+            t.start()
+            #t.join()
+        elif act == 2:
+            t = th.Thread(target=insert, args=(randint(1,3), word_pool[randint(0,m)], word_pool[randint(0,m)],))
+            t.setDaemon(True)
+            t.start()
+            #t.join()
+        elif act == 3:
+            t = th.Thread(target=update, args=(randint(1,3), word_pool[randint(0,m)], word_pool[randint(0,m)],))
+            t.setDaemon(True)
+            t.start()
+            #t.join()
+        else:
+            t = th.Thread(target=delete, args=(randint(1,3), word_pool[randint(0,m)],))
+            t.setDaemon(True)
+            t.start()
+            #t.join()
+    time.sleep(10)
+    d1 = organized_dump(1)
+    d2 = organized_dump(2)
+    d3 = organized_dump(3)
+    if d1 == d2 and d2 == d3:
+        print "Perfect"
+    else:
+        print "Inconsistency!"
+        print "d1",d1
+        print "d2",d2
+        print "d3",d3
+
+    time.sleep(10)
+    d1 = organized_dump(1)
+    d2 = organized_dump(2)
+    d3 = organized_dump(3)
+    if d1 == d2 and d2 == d3:
+        print "Perfect"
+    else:
+        print "Inconsistency!"
+        print "d1",d1
+        print "d2",d2
+        print "d3",d3
+
+    time.sleep(10)
+    d1 = organized_dump(1)
+    d2 = organized_dump(2)
+    d3 = organized_dump(3)
+    if d1 == d2 and d2 == d3:
+        print "Perfect"
+    else:
+        print "Inconsistency!"
+        print "d1",d1
+        print "d2",d2
+        print "d3",d3
+
+    print "Finish"
+    shutdown_all()
+
+
 def main():
     read_config()
-    normal_consistency_test(200)
+    #normal_consistency_test(200)
+    high_concurrency_test(20)
 
 if __name__ == "__main__":
     main()
