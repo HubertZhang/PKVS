@@ -19,12 +19,12 @@ servers_man = [""]
 def read_config(file = "./conf/settings.conf"):
     file = open(file, "r")
     config = json.load(file)
-    servers.append("http://%s:%s/kv/" %(re.split(':',config['n01'])[0],config['port01']))
-    servers.append("http://%s:%s/kv/" %(re.split(':',config['n02'])[0],config['port02']))
-    servers.append("http://%s:%s/kv/" %(re.split(':',config['n03'])[0],config['port03']))
-    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n01'])[0],config['port01']))
-    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n02'])[0],config['port02']))
-    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n03'])[0],config['port03']))
+    servers.append("http://%s:%s/kv/" %(re.split(':',config['n01'])[0],config['lp01']))
+    servers.append("http://%s:%s/kv/" %(re.split(':',config['n02'])[0],config['lp02']))
+    servers.append("http://%s:%s/kv/" %(re.split(':',config['n03'])[0],config['lp03']))
+    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n01'])[0],config['lp01']))
+    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n02'])[0],config['lp02']))
+    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n03'])[0],config['lp03']))
 
 def start(i):
     #subprocess.Popen([os.getcwd() + "/bin/server", str(i)], stdout=os.devnull, stderr=None)

@@ -17,19 +17,20 @@ func main () {
 		return
 	}
 	me, _ := strconv.Atoi(os.Args[1])
-	peers, port, err := load_config()
+	peers, default_port, local_ports, err := load_config()
 	if err != nil {
 		fmt.Print(err)
 		return
 	}
+	if peers == nil {
+		return
+	}
+
 //	peers[me-1] = "10000"
 
 	paxos_peer = paxos.Make(peers, me-1, nil)
 	getServer(paxos_peer, me-1)
-	fmt.Print("Peers Number:")
-	fmt.Println(len(peers))
-	fmt.Print("Ports Number:")
-	fmt.Println(len(port))
+
 	http.HandleFunc("/kv/insert", handleInsert)
 	http.HandleFunc("/kv/get", handleGet)
 	http.HandleFunc("/kv/delete", handleDelete)
@@ -39,9 +40,19 @@ func main () {
 	http.HandleFunc("/kvman/countkey", handleCount)
 	http.HandleFunc("/kvman/shutdown", handleHalt)
 	http.HandleFunc("/kvman/dumplog", handleDumpLog)
-	fmt.Println(":"+strconv.Itoa(port[me-1]))
 
-	err = http.ListenAndServe(":"+strconv.Itoa(port[me-1]), nil)
+	var port int
+	if default_port == 0 {
+		port = local_ports[me-1]
+	} else {
+		port = default_port
+	}
+	fmt.Print("Peers Number:")
+	fmt.Println(len(peers))
+	fmt.Print("Ports Number:")
+	fmt.Println(port)
+
+	err = http.ListenAndServe(":"+strconv.Itoa(port), nil)
 	if err != nil {
 		fmt.Println(err)
 	}
