@@ -80,17 +80,18 @@ func (self *Server) newOperation(op_code int, key string, value string) (bool, s
 	op.Owner = self.me
 
 	for true {
+		self.check_max_lock.Lock()
 		seq := self.getSeq()
-
 		self.peer.Start(seq, *op)
+		self.check_max_lock.Unlock()
 
 		decision := self.checkStatus(seq)
 
 		item := self.addOp(seq, decision)
+		flag, result := self.performOp(seq, decision)
+		item.Op.Valid = flag
 
 		if decision.Owner == self.me {
-			flag, result := self.performOp(seq, decision)
-			item.Op.Valid = flag
 			return flag, result
 		}
 
@@ -103,8 +104,8 @@ func (self *Server) checkStatus(seq int) Op {
 	var status bool = false
 	var op interface{}
 	for true {
-		fmt.Print("checking:")
-		fmt.Println(seq)
+		// fmt.Print("checking:")
+		// fmt.Println(seq)
 		status, op = self.peer.Status(seq)
 		if status {
 			break
@@ -117,14 +118,12 @@ func (self *Server) checkStatus(seq int) Op {
 }
 
 func (self *Server) getSeq() int {
-	self.check_max_lock.Lock()
 	rtn_val := self.peer.Max()
 	if self.peer.Max() == -1 {
 		rtn_val = 1
 	} else {
 		rtn_val = rtn_val + 1
 	}
-	self.check_max_lock.Unlock()
 
 	return rtn_val
 }
@@ -244,8 +243,9 @@ func (self *Server) getMap() map[string]string {
 		self.dealWithHole(self.peer.Max())
 	}
 	tem_pose := self.tail
+
 	for true {
-		if tem_pose == nil {
+		if tem_pose.Next == nil {
 			break
 		}
 		switch tem_pose.Op.Operation {
