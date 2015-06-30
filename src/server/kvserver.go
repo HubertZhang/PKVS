@@ -68,8 +68,8 @@ func newItem(seq int) *Item {
 
 
 func (self *Server) newOperation(op_code int, key string, value string) (bool, string) {
-	fmt.Println("New Operation with: ")
-	fmt.Println(strconv.Itoa(op_code) + ", " + key + ", " + value)
+	// fmt.Println("New Operation with: ")
+	// fmt.Println(strconv.Itoa(op_code) + ", " + key + ", " + value)
 
 	op := new(Op)
 	op.Operation = op_code
@@ -101,6 +101,8 @@ func (self *Server) checkStatus(seq int) Op {
 	var status bool = false
 	var op interface{}
 	for true {
+		fmt.Print("checking:")
+		fmt.Println(seq)
 		status, op = self.peer.Status(seq)
 		if status {
 			break
@@ -237,7 +239,6 @@ func (self *Server) getMap() map[string]string {
 			break
 		}
 		switch tem_pose.Op.Operation {
-		case GET: continue
 		case UPDATE:
 			_, ok := forbidden_m[tem_pose.Op.Key]
 			if tem_pose.Op.Valid && !ok {
@@ -254,6 +255,7 @@ func (self *Server) getMap() map[string]string {
 			if tem_pose.Op.Valid {
 				forbidden_m[tem_pose.Op.Key] = true
 			}
+		case GET:
 		}
 		tem_pose = tem_pose.Next
 	}
