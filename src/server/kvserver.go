@@ -193,3 +193,69 @@ func (self *Server) dump() []byte {
 	}
 	return rsp
 }
+
+func (self *Server) dumpMap() []byte {
+	m := self.getMap()
+	data := make([][2]string, len(m))
+	counter := 0
+	for k, v := range m {
+		data[counter] = [2]string{k, v}
+		counter += 1
+	}
+
+	rsp, err := json.Marshal(data)
+	if err != nil {
+		rsp = returnError()
+	}
+	return rsp
+}
+
+func (self *Server) countKey() []byte {
+	m := self.getMap()
+	data := struct {
+		Result int `json:"result"`
+	} {
+		len(m),
+	}
+	rsp, err := json.Marshal(data)
+	if err != nil {
+		rsp = returnError()
+	}
+	return rsp
+}
+
+func (self *Server) getMap() map[string]string {
+	m := make(map[string]string)
+	forbidden_m := make(map[string]bool)
+
+	if self.peer.Max() > self.tail.SequenceNumber {
+		self.dealWithHole(self.peer.Max())
+	}
+	tem_pose := self.tail
+	for true {
+		if tem_pose == nil {
+			break
+		}
+		switch tem_pose.Op.Operation {
+		case GET: continue
+		case UPDATE:
+			_, ok := forbidden_m[tem_pose.Op.Key]
+			if tem_pose.Op.Valid && !ok {
+				m[tem_pose.Op.Key] = tem_pose.Op.Value
+				forbidden_m[tem_pose.Op.Key] = true
+			}
+		case INSERT:
+			_, ok := forbidden_m[tem_pose.Op.Key]
+			if tem_pose.Op.Valid && !ok {
+				m[tem_pose.Op.Key] = tem_pose.Op.Value
+				forbidden_m[tem_pose.Op.Key] = true
+			}
+		case DELETE:
+			if tem_pose.Op.Valid {
+				forbidden_m[tem_pose.Op.Key] = true
+			}
+		}
+		tem_pose = tem_pose.Next
+	}
+	return m
+}

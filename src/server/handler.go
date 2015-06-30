@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"encoding/json"
+	"os"
 )
 
 func handleGet(w http.ResponseWriter, r *http.Request) {
@@ -76,13 +77,15 @@ func handleDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleDump(w http.ResponseWriter, r *http.Request) {
-	writeResponse(server.dump(), w)
+	writeResponse(server.dumpMap(), w)
 }
 
 func handleCount(w http.ResponseWriter, r *http.Request) {
+	writeResponse(server.countKey(), w)
 }
 
 func handleHalt(w http.ResponseWriter, r *http.Request) {
+	os.Exit(0)
 }
 
 func returnError() []byte {
