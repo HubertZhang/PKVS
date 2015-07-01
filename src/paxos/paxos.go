@@ -23,6 +23,8 @@ package paxos
 import "net"
 import "net/rpc"
 import "log"
+import "time"
+
 //import "os"
 import "syscall"
 import "sync"
@@ -360,6 +362,7 @@ func (px *Paxos) Propose(seq int, v interface{}) {
 			break
 		}
 		ballot = ballot + px.npaxos
+		time.Sleep(100 * time.Millisecond)
 	}
 	// fmt.Printf("%d: %d times\n", px.me, count)
 }
@@ -518,6 +521,8 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 	// Your initialization code here.
 	px.npaxos = len(peers)
+	fmt.Print("Peers Number: ")
+	fmt.Println(len(peers))
 	px.mu = sync.Mutex{}
 	px.next = 0
 	px.tail = nil
@@ -536,7 +541,7 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 		// prepare to receive connections from clients.
 		// change "unix" to "tcp" to use over a network.
-//		os.Remove(peers[me]) // only needed for "unix"
+		// os.Remove(peers[me]) // only needed for "unix"
 		l, e := net.Listen("tcp", peers[me])
 		if e != nil {
 			log.Fatal("listen error: ", e)
