@@ -85,6 +85,7 @@ func handleCount(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleHalt(w http.ResponseWriter, r *http.Request) {
+	server.peer.Kill()
 	os.Exit(0)
 }
 
