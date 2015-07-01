@@ -16,21 +16,34 @@ sys.setdefaultencoding('utf-8')
 servers = [""]
 servers_man = [""]
 
+MANUALLY_DEBUG = True
+SINGLE_PORT = True
+
 def read_config(file = "./conf/settings.conf"):
     file = open(file, "r")
     config = json.load(file)
-    servers.append("http://%s:%s/kv/" %(re.split(':',config['n01'])[0],config['lp01']))
-    servers.append("http://%s:%s/kv/" %(re.split(':',config['n02'])[0],config['lp02']))
-    servers.append("http://%s:%s/kv/" %(re.split(':',config['n03'])[0],config['lp03']))
-    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n01'])[0],config['lp01']))
-    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n02'])[0],config['lp02']))
-    servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n03'])[0],config['lp03']))
+    if SINGLE_PORT:
+        servers.append("http://%s:%s/kv/" %(re.split(':',config['n01'])[0],config['port']))
+        servers.append("http://%s:%s/kv/" %(re.split(':',config['n02'])[0],config['port']))
+        servers.append("http://%s:%s/kv/" %(re.split(':',config['n03'])[0],config['port']))
+        servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n01'])[0],config['port']))
+        servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n02'])[0],config['port']))
+        servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n03'])[0],config['port']))
+    else:
+        servers.append("http://%s:%s/kv/" %(re.split(':',config['n01'])[0],config['lp01']))
+        servers.append("http://%s:%s/kv/" %(re.split(':',config['n02'])[0],config['lp02']))
+        servers.append("http://%s:%s/kv/" %(re.split(':',config['n03'])[0],config['lp03']))
+        servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n01'])[0],config['lp01']))
+        servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n02'])[0],config['lp02']))
+        servers_man.append("http://%s:%s/kvman/" %(re.split(':',config['n03'])[0],config['lp03']))
 
 def start(i):
     #subprocess.Popen([os.getcwd() + "/bin/server", str(i)], stdout=os.devnull, stderr=None)
-    os.system("./bin/server %s > ~/Desktop/log%s &" %(str(i),str(i)))
+    os.system("./bin/server %s > log%s &" %(str(i),str(i)))
 
 def start_all():
+    if MANUALLY_DEBUG :
+        return
     start(1)
     start(2)
     start(3)
@@ -70,6 +83,8 @@ def shutdown(me):
         print e
 
 def shutdown_all():
+    if MANUALLY_DEBUG:
+        return
     shutdown(1)
     shutdown(2)
     shutdown(3)
@@ -89,15 +104,14 @@ def count(me):
     r = requests.get(servers_man[me]+'countkey', params={})
     return r.json(), r.elapsed.total_seconds()
 
-temp = ["key1", "_key2", "^%!@#$%^&*()key3", "{key4", "key5_+=",
+word_pool = ["key1", "_key2", "^%!@#$%^&*()key3", "{key4", "key5_+=",
              "key6-=_+-[", "key7测试", "{key8=", "_key9\'\"", "]key10\\|",
              "12421", "aslf\rjhalgha", "657468sv\0ca", "18726\a(^&(^(",
              "0chp3\"`", ")*HPB", "啦啦啦", "+++", "~!@#GX", "{\ndAFqw}"]
 
-word_pool = ["df2738r7yweh","hjdf834","f3","j843","jsdf82342","jjjjf","jnd883","jhjf82","2548695","dfu3qw","jdf83"]
+word_pool1 = ["df2738r7yweh","hjdf834","f3","j843","jsdf82342","jjjjf","jnd883","jhjf82","2548695","dfu3qw","jdf83"]
 
 def normal_consistency_test(n): #random
-    start_all()
     m = len(word_pool)-1
     d = {}
     for i in range(0,n):
@@ -141,23 +155,8 @@ def normal_consistency_test(n): #random
                 break
             if r['success']:
                 d.pop(key)
-    d1 = organized_dump(1)
-    d2 = organized_dump(2)
-    d3 = organized_dump(3)
-    if d1 == d2 and d2 == d3:
-        print "Perfect"
-    else:
-        print "Inconsistency!"
-        print "d",d
-        print "d1",d1
-        print "d2",d2
-        print "d3",d3
-    print "Finish"
-    shutdown_all()
 
 def high_concurrency_test(n): # random
-    start_all()
-    time.sleep(2)
     m = len(word_pool)-1
     threads = []
     for i in range(0,n):
@@ -191,28 +190,38 @@ def high_concurrency_test(n): # random
     #time.sleep(10)
     for t in threads:
         t.join()
+
+def dump_test():
     d1 = organized_dump(1)
     d2 = organized_dump(2)
     d3 = organized_dump(3)
+    result = False
     if d1 == d2 and d2 == d3:
         print "Perfect"
         print "d1",d1
         print "d2",d2
         print "d3",d3
+        result = True
     else:
         print "Inconsistency!"
         print "d1",d1
         print "d2",d2
         print "d3",d3
-
+        result = False
     print "Finish"
-    shutdown_all()
-
+    return result
 
 def main():
     read_config()
-    #normal_consistency_test(50)
+    start_all()
+    normal_consistency_test(50)
     high_concurrency_test(500)
+    result = dump_test()
+    shutdown_all()
+    if result:
+        sys.exit(0)
+    else:
+        sys.exit(-1)
 
 if __name__ == "__main__":
     main()
