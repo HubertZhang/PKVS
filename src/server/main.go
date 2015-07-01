@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"encoding/gob"
+	"strings"
 )
 var paxos_peer *paxos.Paxos
 
@@ -26,6 +27,8 @@ func main () {
 		return
 	}
 
+	peers[me-1] =":"+ strings.Split(peers[me-1], ":")[1]
+	fmt.Println("Paxos port" + peers[me-1])
 //	peers[me-1] = "10000"
 
 	paxos_peer = paxos.Make(peers, me-1, nil)
