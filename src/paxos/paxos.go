@@ -23,7 +23,7 @@ package paxos
 import "net"
 import "net/rpc"
 import "log"
-import "os"
+//import "os"
 import "syscall"
 import "sync"
 import "fmt"
@@ -98,7 +98,7 @@ func makeLogEntry(seq int) *LogEntry {
 // please do not change this function.
 //
 func call(srv string, name string, args interface{}, reply interface{}) bool {
-	c, err := rpc.Dial("unix", srv)
+	c, err := rpc.Dial("tcp", srv)
 	if err != nil {
 		err1 := err.(*net.OpError)
 		if err1.Err != syscall.ENOENT && err1.Err != syscall.ECONNREFUSED {
@@ -518,8 +518,6 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 	// Your initialization code here.
 	px.npaxos = len(peers)
-	fmt.Print("Peers Number: ")
-	fmt.Println(len(peers))
 	px.mu = sync.Mutex{}
 	px.next = 0
 	px.tail = nil
@@ -538,8 +536,8 @@ func Make(peers []string, me int, rpcs *rpc.Server) *Paxos {
 
 		// prepare to receive connections from clients.
 		// change "unix" to "tcp" to use over a network.
-		os.Remove(peers[me]) // only needed for "unix"
-		l, e := net.Listen("unix", peers[me])
+//		os.Remove(peers[me]) // only needed for "unix"
+		l, e := net.Listen("tcp", peers[me])
 		if e != nil {
 			log.Fatal("listen error: ", e)
 		}
