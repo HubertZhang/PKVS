@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if ! [ $# = 1 ]; then
+	echo $#
+	echo "Usage:\n$0 <node id>"
+	exit
+fi
+
+pkill -f "bin/server ${1#n}"
